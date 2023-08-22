@@ -99,7 +99,7 @@ while True:
                 break
 
             if event == 'Consultar por nome':
-                clienteBusca = values['nome'].upper()
+                clienteBusca = values['nome'].upper().strip()
                 c.execute('SELECT nome, email, telefone FROM clientes WHERE UPPER(nome) = ?', (clienteBusca,))
 
                 registros = c.fetchall()
@@ -108,11 +108,12 @@ while True:
                 janelaConsultaClientes['tabela'].update(values=registros)
             
             elif event == 'Todos':
-                c.execute('SELECT * FROM clientes')
+                c.execute('SELECT nome, email, telefone FROM clientes')
                 registros = c.fetchall()
-
+            
                 janelaConsultaClientes['tabela'].update(values=registros)
-                
+            
+            # cadastra um novo cliente dentro da tela de consulta
             elif event == 'Novo Cliente':
                 layoutCadastroClientes = [
                     [sg.Text('Nome: '), sg.InputText(key='nome')],
@@ -194,24 +195,24 @@ while True:
     elif event == 'Consulta Fornecedores':
 
         # editar registro escolhido
-        def edit_record(new_name, new_value, old_name):
-            c.execute("UPDATE vendas SET produto=?, valor=? WHERE produto=?", (new_name, new_value, old_name))
+        def edit_record(new_name, new_cnpj, old_name):
+            c.execute("UPDATE fornecedores SET nome=?, CNPJ=? WHERE nome=?, CNPJ=?", (new_name, new_cnpj, old_name))
             conn.commit()
 
 
         # Deleta o registro escolhido
         def delete_record(name_to_delete):
-            c.execute("DELETE FROM vendas WHERE produto=?", (name_to_delete,))
+            c.execute("DELETE FROM fornecedores WHERE nome=?", (name_to_delete,))
             conn.commit()
 
 
         # cria a tela de consulta
         layoutConsultaFornecedores = [
             [sg.Text('Nome do Fornecedor: '), sg.InputText(key='nome')],
-            [sg.Button('Consultar'), sg.Button('Cancelar')],
+            [sg.Button('Mostrar todos') ,sg.Button('Consultar'), sg.Button('Cancelar')],
             [sg.Table(values=[], headings=['Nome', 'CNPJ'], size=(30, 30), display_row_numbers=False,
             auto_size_columns=False, num_rows=10, key='tabela')],
-            [sg.Button('Editar'), sg.Button('Excluir')]
+            [sg.Button('Novo Fornecedor') ,sg.Button('Editar'), sg.Button('Excluir')]
         ]
 
         # variável para criar janela de consulta
@@ -225,8 +226,33 @@ while True:
                 janelaConsultaFornecedores.close()
                 break
 
-            if event == 'Consultar':
-                fornecedorBusca = values['nome'].upper()
+            # cria uma janela de cadastro dentro da seção de consulta
+            if event == 'Novo Fornecedor':
+                layoutCadastroFornecedores = [
+                    [sg.Text('CNPJ: '), sg.InputText(key='cnpj')],
+                    [sg.Text('Nome: '), sg.InputText(key='nome')],
+                    [sg.Button('Cadastrar'), sg.Button('Cancelar')],
+                ]
+
+                janelaCadastroFornecedor = sg.Window('Tela de cadastro fornecedor', layoutCadastroFornecedores, size=(400, 400))
+
+                while True:
+                    event, values = janelaCadastroFornecedor.read()
+
+                    if event == sg.WINDOW_CLOSED or event == 'Cancelar':
+                        janelaCadastroFornecedor.close()
+                        break
+
+                    c.execute('INSERT INTO fornecedores(CNPJ, nome) VALUES(?, ?)', (values['cnpj'], values['nome']))
+                    conn.commit()
+
+                    janelaCadastroFornecedor['cnpj'].update('')
+                    janelaCadastroFornecedor['nome'].update('')
+
+                    sg.popup('Cadastro efetuado', title='Cadastro')
+
+            elif event == 'Consultar':
+                fornecedorBusca = values['nome'].upper().strip()
                 c.execute('SELECT nome, CNPJ FROM fornecedores WHERE UPPER(nome) = ?', (fornecedorBusca,))
 
                 registros = c.fetchall()
@@ -235,18 +261,33 @@ while True:
 
                 janelaConsultaFornecedores['tabela'].update(values=registros)
 
+            elif event == 'Mostrar todos':
+                c.execute('SELECT * FROM fornecedores')
+
+                registros = c.fetchall()
+
+                # atualizar
+
+                janelaConsultaFornecedores['tabela'].update(values=registros)
+
+           
+
     if event == 'Cadastro Transportadoras':
 
         layoutCadastroTransportadoras = [
-            [sg.Text('Nome:')],
-            [sg.InputText(key='nome')],
+            [sg.Text('Empresa:')],
+            [sg.InputText(key='empresa')],
+            [sg.Text('E-mail: ')],
+            [sg.InputText(key='email')],
+            [sg.Text('Telefone: ')],
+            [sg.InputText(key='tel')],
             [sg.Text('Código de rastreamento: ')],
             [sg.InputText(key='cod')],
             [sg.Button('Cadastrar'), sg.Button('Cancelar')],
         ]
 
         janelaCadastroTransportadoras = sg.Window('Cadastro de Transportadoras', layoutCadastroTransportadoras, resizable=True)
-
+        # loop para manter tela de cadastro aberta
         while True:
             event, values = janelaCadastroTransportadoras.read()
 
@@ -254,14 +295,89 @@ while True:
                 janelaCadastroTransportadoras.close()
                 break
             if event == 'Cadastrar':
-                c.execute('INSERT INTO transportadora(nome, codRastreio) VALUES(?, ?)', (values['nome'], values['cod']))
+                c.execute('INSERT INTO transportadora(empresa, email, telefone, cod_ratreio) VALUES(?, ?, ?, ?)', (values['empresa'], values['email'], values['tel'], values['cod']))
                 conn.commit()
 
             # atualiza os inputs após cadastrar
-            janelaCadastroTransportadoras['nome'].update('')
+            janelaCadastroTransportadoras['empresa'].update('')
+            janelaCadastroTransportadoras['email'].update('')
+            janelaCadastroTransportadoras['tel'].update('')
             janelaCadastroTransportadoras['cod'].update('')
 
-            sg.popup('Cadastro efetuado', title='Cadastrado')
+            sg.popup('Cadastro efetuado', title='Cadastrado', auto_close=True)
+
+    # CONSULTA DE TRANSPORTADORAS
+    if event == 'Consulta Transportadoras':
+            
+            layoutConsultaTransportadoras = [
+                [sg.Text('Nome da empresa: '), sg.InputText(key='empresa')],
+                [sg.Button('Consultar'), sg.Button('Mostrar todos'), sg.Button('Cancelar')],
+                [sg.Table(values=[], headings=('Empresa', 'E-mail', 'Telefone', 'Codigo de rastreio'), justification='c', expand_x=True, key='tabela', display_row_numbers=False,
+            auto_size_columns=False, num_rows=10)],
+                [sg.Button('Nova transportadora'), sg.Button('Editar'), sg.Button('Excluir')]
+            ]
+
+            janelaConsultaTransportadoras = sg.Window('Consultar transportadora', layoutConsultaTransportadoras, auto_size_buttons=True,resizable=True)
+
+            while True:
+                event, values = janelaConsultaTransportadoras.read()
+                # fechar janela
+                if event == sg.WINDOW_CLOSED or event == 'Cancelar':
+                    janelaConsultaTransportadoras.close()
+                    break
+                
+                if event == 'Nova transportadora':
+                    layoutCadastroTransportadoras = [
+                        [sg.Text('Empresa:')],
+                        [sg.InputText(key='empresa')],
+                        [sg.Text('E-mail: ')],
+                        [sg.InputText(key='email')],
+                        [sg.Text('Telefone: ')],
+                        [sg.InputText(key='tel')],
+                        [sg.Text('Código de rastreamento: ')],
+                        [sg.InputText(key='cod')],
+                        [sg.Button('Cadastrar'), sg.Button('Cancelar')],
+                    ]
+
+                    janelaCadastroTransportadoras = sg.Window('Cadastro de Transportadoras', layoutCadastroTransportadoras, resizable=True)
+                    # loop para manter tela de cadastro aberta
+                    while True:
+                        event, values = janelaCadastroTransportadoras.read()
+
+                        if event == sg.WINDOW_CLOSED or event == 'Cancelar':
+                            janelaCadastroTransportadoras.close()
+                            break
+                        if event == 'Cadastrar':
+                            c.execute('INSERT INTO transportadora(empresa, email, telefone, cod_ratreio) VALUES(?, ?, ?, ?)', (values['empresa'], values['email'], values['tel'], values['cod']))
+                            conn.commit()
+
+                        # atualiza os inputs após cadastrar
+                        janelaCadastroTransportadoras['empresa'].update('')
+                        janelaCadastroTransportadoras['email'].update('')
+                        janelaCadastroTransportadoras['tel'].update('')
+                        janelaCadastroTransportadoras['cod'].update('')
+
+                        sg.popup('Cadastro efetuado', title='Cadastrado', auto_close=True)
+
+                elif event == 'Consultar':
+
+                    transportadoraBusca = values['empresa'].upper().strip()
+                    c.execute('SELECT empresa, email, telefone, cod_ratreio FROM transportadora WHERE UPPER(empresa) = ?', (transportadoraBusca,))
+
+                    registros = c.fetchall()
+
+                    # atualizar
+                    janelaConsultaTransportadoras['tabela'].update(values=registros)
+
+                elif event == 'Mostrar todos':
+                    c.execute('SELECT empresa, email, telefone, cod_ratreio FROM transportadora')
+
+                    registros = c.fetchall()
+                    janelaConsultaTransportadoras['tabela'].update(values=registros)
+               
+
+
+            
 
     ###################### RELATORIO ######################
 
